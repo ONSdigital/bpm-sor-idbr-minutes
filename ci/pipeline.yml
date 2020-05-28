@@ -1,0 +1,161 @@
+---
+# COMMON ========================================
+
+aws_secret_access_key: &aws_secret_access_key ((aws.service_account_access_key_secret))
+aws_access_key_id: &aws_access_key_id ((aws.service_account_access_key_id))
+
+aws_params: &aws_params
+  AWS_ACCESS_KEY_ID: *aws_access_key_id
+  AWS_SECRET_ACCESS_KEY: *aws_secret_access_key
+  AWS_REGION: ((aws_region))
+  AWS_SERVICE_ROLE: arn:aws:iam::((aws.account_((environment)))):role/bpm-svc-deploy-sor
+  S3_NAME: ((environment)).bpm.((aws.tf_state_s3))
+  S3_KEY: statement-of-record/appsync.tfstate
+
+tf_params: &tf_params
+  <<: *aws_params
+  WORKSPACE: ((workspace))
+  TERRAFORM_SOURCE: generated/terraform
+
+github_pull_creds: &github_pull_creds
+  username: ((github.access_token))
+  password: x-oauth-basic
+
+# COMMON TASKS ==================================
+
+authenticate: &authenticate
+  task: authenticate
+  file: bpm-ci-git/tasks/authenticate/task.yml
+  params:
+    <<: *aws_params
+
+# RESOURCES =====================================
+
+resources:
+  - name: aws-appsync-generator-git
+    type: git
+    icon: github-circle
+    source:
+      uri: https://github.com/ONSdigital/aws-appsync-generator.git
+      tag: ((aws-appsync-generator-version))
+
+  - name: configuration-git
+    type: git
+    icon: github-circle
+    source:
+      uri: https://github.com/ONSdigital/((configuration-repo)).git
+      branch: master
+      # TODO - how to do easy switching branches and tags
+      #       - may just have to amend before fly?
+
+  - name: sor-tf-git
+    type: git
+    icon: github-circle
+    source:
+      uri: https://github.com/ONSdigital/statement-of-record-terraform.git
+      branch: split-config
+      <<: *github_pull_creds
+
+  - name: bpm-tools-git
+    type: git
+    icon: github-circle
+    source:
+      uri: https://github.com/ONSdigital/bpm-tools.git
+      tag: ((bpm-tools-version))
+      <<: *github_pull_creds
+
+  - name: bpm-ci-git
+    type: git
+    icon: github-circle
+    source:
+      uri: https://github.com/ONSdigital/bpm-ci.git
+      <<: *github_pull_creds
+
+# JOBS ==========================================
+
+jobs:
+  - name: deploy
+    serial: true
+    serial_groups: [data, key]
+    plan:
+      - in_parallel:
+          - get: sor-tf-git
+          - get: aws-appsync-generator-git
+          - get: bpm-ci-git
+          - get: configuration-git
+            trigger: true
+      - do:
+          - *authenticate
+          - task: generate
+            file: sor-tf-git/ci/tasks/generate_terraform.yml
+            params:
+              CONFIGURATION: ((configuration))
+          - task: terraform-apply
+            file: sor-tf-git/ci/tasks/terraform_apply.yml
+            params:
+              <<: *tf_params
+
+  - name: load-ref-data
+    serial: true
+    serial_groups: [data]
+    plan:
+      - in_parallel:
+          - get: sor-tf-git
+          - get: configuration-git
+            trigger: true
+            passed: [deploy]
+          - get: bpm-tools-git
+          - get: bpm-ci-git
+      - do:
+          - *authenticate
+          - task: load
+            file: sor-tf-git/ci/tasks/load_ref_data.yml
+            params:
+              CONFIGURATION: ((configuration))
+              <<: *tf_params
+
+  - name: create-api-key
+    serial: true
+    serial_groups: [key]
+    plan:
+      - in_parallel:
+          - get: sor-tf-git
+          - get: configuration-git
+            passed: [deploy]
+          - get: bpm-tools-git
+          - get: bpm-ci-git
+      - do:
+          - *authenticate
+          - task: get-terraform-state
+            file: sor-tf-git/ci/tasks/get_terraform_state.yml
+            params:
+              <<: *aws_params
+              WORKSPACE: ((workspace))
+              TERRAFORM_SOURCE: .
+          - task: create-key
+            file: sor-tf-git/ci/tasks/create_api_key.yml
+            params:
+              <<: *aws_params
+              WORKSPACE: ((workspace))
+
+  - name: destroy
+    serial: true
+    serial_groups: [data, key]
+    plan:
+      # NB. Don't need the whole generated terraform configuration
+      #     We only the baseline var declaration file so that the
+      #     the state (stored in the backed) will correctly work
+      #     without "value for undeclared variable" errors.
+      - in_parallel:
+          - get: sor-tf-git
+          - get: configuration-git
+            passed: [deploy]
+          - get: bpm-ci-git
+      - do:
+          - *authenticate
+          - task: terraform-destroy
+            file: sor-tf-git/ci/tasks/terraform_destroy.yml
+            params:
+              <<: *aws_params
+              WORKSPACE: ((workspace))
+              TERRAFORM_SOURCE: .
