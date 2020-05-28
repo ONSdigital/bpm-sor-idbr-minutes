@@ -1,0 +1,22 @@
+---
+name: Linter
+
+on: push
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Lint yaml
+        uses: ibiqlik/action-yamllint@master
+        with:
+          config_data: "{rules: {line-length: {max: 120, level: warning}}}"
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@master
+      - name: Lint Terraform
+        uses: actionshub/terraform-lint@master
