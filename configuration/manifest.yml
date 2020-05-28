@@ -1,0 +1,238 @@
+---
+sources:
+  request: &sourceRequest
+    name: request
+    dynamo:
+      backup: true
+      hash_key:
+        name: number
+  actionNotes:
+    name: actionNotes
+    dynamo:
+      backup: true
+      hash_key:
+        name: request_number
+      sort_key:
+        name: id
+  implementationNotes:
+    name: implementationNotes
+    dynamo:
+      backup: true
+      hash_key:
+        name: request_number
+      sort_key:
+        name: id
+  refdata:
+    name: refdata
+    dynamo:
+      hash_key:
+        name: refcat
+      sort_key:
+        name: order
+        type: N
+  documents:
+    name: documents
+    dynamo:
+      backup: true
+      hash_key:
+        name: request_number
+      sort_key:
+        name: uuid
+  links:
+    name: links
+    dynamo:
+      backup: true
+      hash_key:
+        name: request_number
+      sort_key:
+        name: referenced_request
+  default: *sourceRequest
+
+objects:
+  - name: RefData
+    fields:
+      - name: refcat
+        type: String!
+      - name: order
+        type: Int!
+      - name: label
+        type: String!
+
+  - name: Request
+    fields:
+      - name: number
+      - name: type
+      - name: title
+      - name: issue
+      - name: action
+      - name: priority
+        type: Int
+      - name: priorityLabel
+      - name: targetDate
+        type: AWSDateTime
+      - name: categoryName
+      - name: processStage
+      - name: createdBy
+      - name: dateRaised
+        type: AWSDateTime
+      - name: approver
+      - name: approverAction
+      - name: dateApproverAction
+        type: AWSDateTime
+      - name: implementedBy
+      - name: dateImplemented
+        type: AWSDateTime
+      - name: implementationStatus
+      - name: acceptedBy
+      - name: dateAccepted
+        type: AWSDateTime
+      - name: actionNotes
+        resolver:
+          action: list
+          type: [ActionNote]
+          source: actionNotes
+          keyFields:
+            - name: request_number
+              parent: number
+      - name: implementationNotes
+        resolver:
+          action: list
+          type: [ImplementationNote]
+          source: implementationNotes
+          keyFields:
+            - name: request_number
+              parent: number
+      - name: documents
+        resolver:
+          action: list
+          type: [Document]
+          source: documents
+          keyFields:
+            - name: request_number
+              parent: number
+      - name: links
+        resolver:
+          action: list
+          type: [Link]
+          source: links
+          keyFields:
+            - name: request_number
+              parent: number
+
+  - name: Document
+    fields:
+      - name: request_number
+        type: String!
+      - name: uuid
+        type: ID!
+      - name: url
+        type: AWSURL
+      - name: description
+        type: String
+
+  - name: Link
+    fields:
+      - name: request_number
+        type: String!
+      - name: referenced_request
+        type: String!
+      - name: author
+        type: String
+      - name: title
+        type: String
+      - name: category
+        type: String
+
+  - name: ActionNote
+    fields:
+      - name: request_number
+        type: String!
+      - name: id
+        type: ID!
+      - name: actionee
+      - name: note
+      - name: date
+        type: AWSDate
+      - name: type
+
+  - name: ImplementationNote
+    fields:
+      - name: request_number
+        type: String!
+      - name: id
+        type: ID!
+      - name: implementer
+      - name: note
+      - name: date
+        type: AWSDate
+      - name: status
+
+queries:
+  - name: listRefData
+    resolver:
+      action: get-items
+      type: [RefData]
+      source: refdata
+      keyFields:
+        - name: refcat
+          type: String!
+
+  - name: request
+    resolver:
+      action: get
+      type: Request
+      keyFields:
+        - name: number
+          type: String!
+
+  - name: listRequests
+    resolver:
+      action: list
+      type: [Request]
+
+mutations:
+  - name: createRequest
+    resolver:
+      action: insert
+      type: Request
+      keyFields:
+        - name: number
+
+  - name: createActionNote
+    resolver:
+      action: insert
+      type: ActionNote
+      keyFields:
+        - name: request_number
+        - name: id
+          type: ID
+      source: actionNotes
+
+  - name: createImplementationNote
+    resolver:
+      action: insert
+      type: ImplementationNote
+      keyFields:
+        - name: request_number
+        - name: id
+          type: ID
+      source: implementationNotes
+
+  - name: createDocument
+    resolver:
+      action: insert
+      type: Document
+      keyFields:
+        - name: request_number
+        - name: uuid
+          type: ID
+      source: documents
+
+  - name: createLink
+    resolver:
+      action: insert
+      type: Link
+      keyFields:
+        - name: request_number
+        - name: referenced_request
+      source: links

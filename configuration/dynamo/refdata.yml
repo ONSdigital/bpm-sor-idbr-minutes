@@ -1,0 +1,58 @@
+---
+table: refdata
+fields:
+  refcat: S
+  order: N
+  label: S
+items:
+  - label: Analysis
+    refcat: CATEGORY
+    order: "1"
+  - label: Data Change
+    refcat: CATEGORY
+    order: "3"
+  - label: Enh-support
+    refcat: CATEGORY
+    order: "6"
+  - label: Enh-sources
+    refcat: CATEGORY
+    order: "5"
+  - label: BRES
+    refcat: CATEGORY
+    order: "2"
+  - label: EGR
+    refcat: CATEGORY
+    order: "4"
+  - label: PROJ Business Index
+    refcat: CATEGORY
+    order: "8"
+  - label: Matching
+    refcat: CATEGORY
+    order: "7"
+  - label: Waiting
+    refcat: IMPSTAT
+    order: "1"
+  - label: In Progress
+    refcat: IMPSTAT
+    order: "2"
+  - label: On Hold
+    refcat: IMPSTAT
+    order: "3"
+  - label: UAT/Testing
+    refcat: IMPSTAT
+    order: "4"
+  - label: Done
+    refcat: IMPSTAT
+    order: "5"
+  - label: (1)  24 hours
+    refcat: PRIORITY
+    order: "1"
+  - label: (2)  7 days
+    refcat: PRIORITY
+    order: "2"
+  - label: (3)  28 days
+    refcat: PRIORITY
+    order: "3"
+  - label: (4)  6 months
+    refcat: PRIORITY
+    order: "4"
