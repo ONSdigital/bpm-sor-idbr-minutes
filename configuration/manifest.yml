@@ -129,6 +129,7 @@ objects:
         type: AWSURL
       - name: description
         type: String
+      - name: cat
 
   - name: Link
     fields:
